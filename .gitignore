@@ -1,3 +1,5 @@
 node_modules
 result.json
+final_result.json
+sptag.json
 dist/*

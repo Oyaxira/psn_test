@@ -1,0 +1,12 @@
+[
+  {
+    "npCommunicationId": "NPWR15240_00",
+    "tag": "CN",
+    "language": "zh-Hant"
+  },
+  {
+    "npCommunicationId": "NPWR08243_00",
+    "tag": "EU,VR",
+    "language": "zh-Hans"
+  }
+]
