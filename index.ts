@@ -21,9 +21,29 @@ async function main() {
   const targetAccountId = "me"
   // 3. Get the user's list of titles (games).
   const { trophyTitles } = await getUserTitles(authorization, targetAccountId);
+  const { trophyTitles: trophyTitlesZHCN } = await getUserTitles(authorization, targetAccountId,{
+        headerOverrides: {
+          "Accept-Language": "zh-Hans"
+        }
+      });
+  const { trophyTitles: trophyTitlesZHTW } = await getUserTitles(authorization, targetAccountId,{
+        headerOverrides: {
+          "Accept-Language": "zh-Hant"
+        }
+      });
 
   const games: any[] = [];
   for (const title of trophyTitles) {
+
+    const foundGameZHCN = trophyTitlesZHCN.find(
+      (t) => t.npCommunicationId === title.npCommunicationId
+    );
+
+    const foundGameZHTW = trophyTitlesZHTW.find(
+      (t) => t.npCommunicationId === title.npCommunicationId
+    );
+
+
     // 4. Get the list of trophies for each of the user's titles.
     const { trophies: titleTrophies } = await getTitleTrophies(
       authorization,
@@ -34,6 +54,19 @@ async function main() {
           title.trophyTitlePlatform !== "PS5" ? "trophy" : undefined,
         headerOverrides: {
           "Accept-Language": "zh-Hans"
+        }
+      }
+    );
+
+    const { trophies: titleTrophiesHant } = await getTitleTrophies(
+      authorization,
+      title.npCommunicationId,
+      "all",
+      {
+        npServiceName:
+          title.trophyTitlePlatform !== "PS5" ? "trophy" : undefined,
+        headerOverrides: {
+          "Accept-Language": "zh-Hant"
         }
       }
     );
@@ -54,10 +87,13 @@ async function main() {
     );
 
     // 6. Merge the two trophy lists.
-    const mergedTrophies = mergeTrophyLists(titleTrophies, earnedTrophies);
+    const mergedTrophies = mergeTrophyLists(titleTrophies, earnedTrophies, titleTrophiesHant);
 
     games.push({
       gameName: title.trophyTitleName,
+      gameNameHans: foundGameZHCN?.trophyTitleName,
+      gameNameHant: foundGameZHTW?.trophyTitleName,
+      npCommunicationId: title.npCommunicationId,
       platform: title.trophyTitlePlatform,
       trophyTitleIconUrl: title.trophyTitleIconUrl,
       trophyTypeCounts: title.definedTrophies,
@@ -72,7 +108,8 @@ async function main() {
 
 const mergeTrophyLists = (
   titleTrophies: Trophy[],
-  earnedTrophies: Trophy[]
+  earnedTrophies: Trophy[],
+  titleTrophiesHant: Trophy[],
 ) => {
   const mergedTrophies: any[] = [];
 
@@ -81,15 +118,18 @@ const mergeTrophyLists = (
       (t) => t.trophyId === earnedTrophy.trophyId
     );
 
-    mergedTrophies.push(
-      normalizeTrophy({ ...earnedTrophy, ...foundTitleTrophy })
+    const foundTitleTrophyHant = titleTrophiesHant.find(
+      (t) => t.trophyId === earnedTrophy.trophyId
     );
+
+
+    mergedTrophies.push(normalizeTrophy({ ...earnedTrophy, ...foundTitleTrophy }, { ...earnedTrophy, ...foundTitleTrophyHant }));
   }
 
   return mergedTrophies;
 };
 
-const normalizeTrophy = (trophy: Trophy) => {
+const normalizeTrophy = (trophy: Trophy, hantTrophy: Trophy) => {
   return {
     isEarned: trophy.earned ?? false,
     earnedOn: trophy.earned ? trophy.earnedDateTime : "unearned",
@@ -97,8 +137,10 @@ const normalizeTrophy = (trophy: Trophy) => {
     rarity: rarityMap[trophy.trophyRare ?? 0],
     trophyIconUrl: trophy.trophyIconUrl,
     trophyDetail: trophy.trophyDetail,
+    trophyDetailHant: hantTrophy.trophyDetail,
     earnedRate: Number(trophy.trophyEarnedRate),
     trophyName: trophy.trophyName,
+    trophyNameHant: hantTrophy.trophyName,
     trophyHidden: trophy.trophyHidden,
     groupId: trophy.trophyGroupId
   };
