@@ -1,16 +1,18 @@
 import fs from "fs";
 
-import type { Trophy } from "psn-api";
+import type { Trophy, TrophyTitle } from "psn-api";
 import {
   exchangeCodeForAccessToken,
   exchangeNpssoForCode,
   getTitleTrophies,
   getUserTitles,
+  makeUniversalSearch,
   getUserTrophiesEarnedForTitle,
   TrophyRarity
 } from "psn-api";
 
 async function main() {
+  console.log("test");
   // 1. Authenticate and become authorized with PSN.
   // See the Authenticating Manually docs for how to get your NPSSO.
   const npssso = process.env["NPSSO"] || "";
@@ -23,22 +25,56 @@ async function main() {
   //   "UncleSev",
   //   "SocialAllAccounts"
   // );
+  // const targetAccountId =
+  //   allAccountsSearchResults.domainResponses[0].results[0].socialMetadata
+  //     .accountId;
+
+  const targetAccountId = "me"
+
 
   let sptagFile = process.argv[2]
 
-  const targetAccountId = "me"
-  // 3. Get the user's list of titles (games).
-  const { trophyTitles } = await getUserTitles(authorization, targetAccountId);
-  const { trophyTitles: trophyTitlesZHCN } = await getUserTitles(authorization, targetAccountId,{
+  let per = 50;
+  let page = 0;
+  let total = 50;
+  let trophyTitles: TrophyTitle[] = []
+  let trophyTitlesZHCN: TrophyTitle[] = []
+  let trophyTitlesZHTW: TrophyTitle[] = []
+
+  while (per * page <= total) {
+    page++;
+    let { trophyTitles: trophyTitlesEN, totalItemCount } = await getUserTitles(authorization, targetAccountId, {
+      limit: per,
+      offset: per * (page - 1)
+    });
+    total = totalItemCount;
+    console.log(`Processing page ${page} of ${Math.ceil(total / per)}`);
+    let { trophyTitles: trophyTitlesCN } = await getUserTitles(authorization, targetAccountId,{
         headerOverrides: {
           "Accept-Language": "zh-Hans"
-        }
+        },
+        limit: per,
+        offset: per * (page - 1)
       });
-  const { trophyTitles: trophyTitlesZHTW } = await getUserTitles(authorization, targetAccountId,{
+    console.log(`ProcessingCN page ${page} of ${Math.ceil(total / per)}`);
+    let { trophyTitles: trophyTitlesTW } = await getUserTitles(authorization, targetAccountId,{
         headerOverrides: {
           "Accept-Language": "zh-Hant"
-        }
+        },
+        limit: per,
+        offset: per * (page - 1)
       });
+    console.log(`ProcessingTW page ${page} of ${Math.ceil(total / per)}`);
+
+    trophyTitles = trophyTitles.concat(trophyTitlesEN);
+    trophyTitlesZHCN = trophyTitlesZHCN.concat(...trophyTitlesCN);
+    trophyTitlesZHTW = trophyTitlesZHTW.concat(...trophyTitlesTW);
+  }
+
+  console.log(`Total titles: ${trophyTitles.length}`);
+
+  // 3. Get the user's list of titles (games).
+
 
   const games: any[] = [];
 
@@ -59,14 +95,8 @@ async function main() {
           (t) => t.npCommunicationId === spTag?.npCommunicationId
         );
       }
+      console.log(`Processing ${foundGame?.trophyTitleName} ${spTag?.language}`)
 
-      const foundGameZHCN = trophyTitlesZHCN.find(
-        (t) => t.npCommunicationId === spTag?.npCommunicationId
-      );
-
-      const foundGameZHTW = trophyTitlesZHTW.find(
-        (t) => t.npCommunicationId === spTag?.npCommunicationId
-      );
       const { trophies: titleTrophies } = await getTitleTrophies(
         authorization,
         spTag.npCommunicationId,
@@ -119,6 +149,8 @@ async function main() {
 
 
     for (const title of trophyTitles) {
+
+      console.log(`Processing ${title.trophyTitleName}`)
 
       const foundGameZHCN = trophyTitlesZHCN.find(
         (t) => t.npCommunicationId === title.npCommunicationId
