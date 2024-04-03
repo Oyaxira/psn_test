@@ -8,6 +8,7 @@ import {
   getUserTitles,
   makeUniversalSearch,
   getUserTrophiesEarnedForTitle,
+  getTitleTrophyGroups,
   TrophyRarity
 } from "psn-api";
 
@@ -126,9 +127,19 @@ async function main() {
         }
       );
 
+      const {trophyGroups} = await getTitleTrophyGroups(
+        authorization,
+        spTag.npCommunicationId,
+        {
+          npServiceName:
+            foundGame?.trophyTitlePlatform !== "PS5" ? "trophy" : undefined,
+          headerOverrides: {
+            "Accept-Language":  spTag.language
+          }
+        });
 
         // 6. Merge the two trophy lists.
-        const mergedTrophies = mergeTrophyLists2(titleTrophies, earnedTrophies);
+        const mergedTrophies = mergeTrophyLists2(titleTrophies, earnedTrophies, trophyGroups);
 
         games.push({
           gameName: foundGame?.trophyTitleName,
@@ -271,6 +282,7 @@ const normalizeTrophy = (trophy: Trophy, hantTrophy: Trophy) => {
 const mergeTrophyLists2 = (
   titleTrophies: Trophy[],
   earnedTrophies: Trophy[],
+  trophyGroups: any[],
 ) => {
   const mergedTrophies: any[] = [];
 
@@ -279,13 +291,16 @@ const mergeTrophyLists2 = (
       (t) => t.trophyId === earnedTrophy.trophyId
     );
 
-    mergedTrophies.push(normalizeTrophy2({ ...earnedTrophy, ...foundTitleTrophy }));
+    mergedTrophies.push(normalizeTrophy2({ ...earnedTrophy, ...foundTitleTrophy }, trophyGroups));
   }
 
   return mergedTrophies;
 };
 
-const normalizeTrophy2 = (trophy: Trophy) => {
+const normalizeTrophy2 = (trophy: Trophy, trophyGroups: any[]) => {
+  let trophyGroup = trophyGroups.find((t) => {
+    return t.trophyGroupId == trophy.trophyGroupId
+  }) || {}
   return {
     isEarned: trophy.earned ?? false,
     earnedOn: trophy.earned ? trophy.earnedDateTime : "unearned",
@@ -296,6 +311,8 @@ const normalizeTrophy2 = (trophy: Trophy) => {
     earnedRate: Number(trophy.trophyEarnedRate),
     trophyName: trophy.trophyName,
     trophyHidden: trophy.trophyHidden,
+    trophyGroupName: trophyGroup?.trophyGroupName,
+    trophyGroupIconUrl: trophyGroup?.trophyGroupIconUrl,
     groupId: trophy.trophyGroupId
   };
 };
