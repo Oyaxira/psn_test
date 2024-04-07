@@ -1,8 +1,8 @@
 ``` bash
 yarn
-NPSSO=your_npsso yarn run test
+yarn run test ./config.json
 
 
 
-NPSSO=your_npsso yarn run test ./sptag.json
+yarn run test ./config.json ./sptag.json
 ```

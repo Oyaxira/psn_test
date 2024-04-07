@@ -11,29 +11,37 @@ import {
   getTitleTrophyGroups,
   TrophyRarity
 } from "psn-api";
+import { findConfigFile } from "typescript";
+
+interface PsnConfig {
+  npsso: string;
+  target: string;
+}
 
 async function main() {
   console.log("test");
   // 1. Authenticate and become authorized with PSN.
   // See the Authenticating Manually docs for how to get your NPSSO.
-  const npssso = process.env["NPSSO"] || "";
+  let configFile = process.argv[2]
+  let config: PsnConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+  const npssso = config.npsso || "";
+  const target = config.target || "";
   const accessCode = await exchangeNpssoForCode(npssso);
   const authorization = await exchangeCodeForAccessToken(accessCode);
 
-    // 2. Get the user's `accountId` from the username.
-  // const allAccountsSearchResults = await makeUniversalSearch(
-  //   authorization,
-  //   "UncleSev",
-  //   "SocialAllAccounts"
-  // );
-  // const targetAccountId =
-  //   allAccountsSearchResults.domainResponses[0].results[0].socialMetadata
-  //     .accountId;
+  let targetAccountId = "me"
+  if (target !== "me") {
+    const allAccountsSearchResults = await makeUniversalSearch(
+      authorization,
+      target,
+      "SocialAllAccounts"
+    );
+    targetAccountId =
+      allAccountsSearchResults.domainResponses[0].results[0].socialMetadata
+        .accountId;
+  }
 
-  const targetAccountId = "me"
-
-
-  let sptagFile = process.argv[2]
+  let sptagFile = process.argv[3]
 
   let per = 50;
   let page = 0;
@@ -50,21 +58,21 @@ async function main() {
     });
     total = totalItemCount;
     console.log(`Processing page ${page} of ${Math.ceil(total / per)}`);
-    let { trophyTitles: trophyTitlesCN } = await getUserTitles(authorization, targetAccountId,{
-        headerOverrides: {
-          "Accept-Language": "zh-Hans"
-        },
-        limit: per,
-        offset: per * (page - 1)
-      });
+    let { trophyTitles: trophyTitlesCN } = await getUserTitles(authorization, targetAccountId, {
+      headerOverrides: {
+        "Accept-Language": "zh-Hans"
+      },
+      limit: per,
+      offset: per * (page - 1)
+    });
     console.log(`ProcessingCN page ${page} of ${Math.ceil(total / per)}`);
-    let { trophyTitles: trophyTitlesTW } = await getUserTitles(authorization, targetAccountId,{
-        headerOverrides: {
-          "Accept-Language": "zh-Hant"
-        },
-        limit: per,
-        offset: per * (page - 1)
-      });
+    let { trophyTitles: trophyTitlesTW } = await getUserTitles(authorization, targetAccountId, {
+      headerOverrides: {
+        "Accept-Language": "zh-Hant"
+      },
+      limit: per,
+      offset: per * (page - 1)
+    });
     console.log(`ProcessingTW page ${page} of ${Math.ceil(total / per)}`);
 
     trophyTitles = trophyTitles.concat(trophyTitlesEN);
@@ -79,19 +87,19 @@ async function main() {
 
   const games: any[] = [];
 
-  if(sptagFile){
-    let spTags:Array<any> = JSON.parse(fs.readFileSync(sptagFile, 'utf8'));
+  if (sptagFile) {
+    let spTags: Array<any> = JSON.parse(fs.readFileSync(sptagFile, 'utf8'));
     for (const spTag of spTags) {
       let foundGame;
-      if(spTag?.language == "zh-Hans"){
+      if (spTag?.language == "zh-Hans") {
         foundGame = trophyTitlesZHCN.find(
           (t) => t.npCommunicationId === spTag?.npCommunicationId
         );
-      }else if(spTag?.language == "zh-Hant"){
+      } else if (spTag?.language == "zh-Hant") {
         foundGame = trophyTitlesZHTW.find(
           (t) => t.npCommunicationId === spTag?.npCommunicationId
         );
-      }else{
+      } else {
         foundGame = trophyTitles.find(
           (t) => t.npCommunicationId === spTag?.npCommunicationId
         );
@@ -122,39 +130,39 @@ async function main() {
           npServiceName:
             foundGame?.trophyTitlePlatform !== "PS5" ? "trophy" : undefined,
           headerOverrides: {
-            "Accept-Language":  spTag.language
+            "Accept-Language": spTag.language
           }
         }
       );
 
-      const {trophyGroups} = await getTitleTrophyGroups(
+      const { trophyGroups } = await getTitleTrophyGroups(
         authorization,
         spTag.npCommunicationId,
         {
           npServiceName:
             foundGame?.trophyTitlePlatform !== "PS5" ? "trophy" : undefined,
           headerOverrides: {
-            "Accept-Language":  spTag.language
+            "Accept-Language": spTag.language
           }
         });
 
-        // 6. Merge the two trophy lists.
-        const mergedTrophies = mergeTrophyLists2(titleTrophies, earnedTrophies, trophyGroups);
+      // 6. Merge the two trophy lists.
+      const mergedTrophies = mergeTrophyLists2(titleTrophies, earnedTrophies, trophyGroups);
 
-        games.push({
-          gameName: foundGame?.trophyTitleName,
-          gameTag: spTag?.tag,
-          npCommunicationId: foundGame?.npCommunicationId,
-          platform: foundGame?.trophyTitlePlatform,
-          trophyTitleIconUrl: foundGame?.trophyTitleIconUrl,
-          trophyTypeCounts: foundGame?.definedTrophies,
-          earnedCounts: foundGame?.earnedTrophies,
-          trophyList: mergedTrophies
-        });
-      }
+      games.push({
+        gameName: foundGame?.trophyTitleName,
+        gameTag: spTag?.tag,
+        npCommunicationId: foundGame?.npCommunicationId,
+        platform: foundGame?.trophyTitlePlatform,
+        trophyTitleIconUrl: foundGame?.trophyTitleIconUrl,
+        trophyTypeCounts: foundGame?.definedTrophies,
+        earnedCounts: foundGame?.earnedTrophies,
+        trophyList: mergedTrophies
+      });
+    }
 
-      // 7. Write to a JSON file.
-      fs.writeFileSync("./final_result.json", JSON.stringify(games));
+    // 7. Write to a JSON file.
+    fs.writeFileSync("./final_result.json", JSON.stringify(games));
 
   } else {
 
