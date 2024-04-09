@@ -12,6 +12,7 @@ import {
   TrophyRarity
 } from "psn-api";
 import { findConfigFile } from "typescript";
+import * as _ from "lodash";
 
 interface PsnConfig {
   npsso: string;
@@ -145,9 +146,15 @@ async function main() {
             "Accept-Language": spTag.language
           }
         });
-
       // 6. Merge the two trophy lists.
       const mergedTrophies = mergeTrophyLists2(titleTrophies, earnedTrophies, trophyGroups);
+      let filterdEnenedTrohpy = earnedTrophies.filter((t) => t.earned);
+      _.sortBy(filterdEnenedTrohpy, ['earnedDateTime'])
+      let lastEnenedTrohpy = filterdEnenedTrohpy[filterdEnenedTrohpy.length - 1];
+      let firstEnenedTrohpy = filterdEnenedTrohpy[0];
+      let lastTime = lastEnenedTrohpy?.earnedDateTime;
+      let firstTime = firstEnenedTrohpy?.earnedDateTime;
+
 
       games.push({
         gameName: foundGame?.trophyTitleName,
@@ -157,6 +164,8 @@ async function main() {
         trophyTitleIconUrl: foundGame?.trophyTitleIconUrl,
         trophyTypeCounts: foundGame?.definedTrophies,
         earnedCounts: foundGame?.earnedTrophies,
+        lastEnenedTime: lastTime,
+        firstEnenedTime: firstTime,
         trophyList: mergedTrophies
       });
     }

@@ -9,8 +9,10 @@
   "author": "aruru",
   "license": "ISC",
   "dependencies": {
+    "@types/lodash": "^4.17.0",
     "@types/node": "^20.12.2",
     "fs": "^0.0.1-security",
+    "lodash": "^4.17.21",
     "psn-api": "^2.10.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.3"
