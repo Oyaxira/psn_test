@@ -2,6 +2,8 @@
   {
     "npCommunicationId": "NPWR15240_00",
     "tag": "CN",
+    "displayName": "帕鲁猎人", #会替换本身游戏名
+    "customizedName": "最终幻想998", #单独字段
     "language": "zh-Hant"
   },
   {

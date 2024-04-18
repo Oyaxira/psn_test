@@ -17,6 +17,7 @@ import * as _ from "lodash";
 interface PsnConfig {
   npsso: string;
   target: string;
+  output_path: string;
 }
 
 async function main() {
@@ -27,6 +28,7 @@ async function main() {
   let config: PsnConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
   const npssso = config.npsso || "";
   const target = config.target || "";
+  const output_path = config.output_path || "./";
   const accessCode = await exchangeNpssoForCode(npssso);
   const authorization = await exchangeCodeForAccessToken(accessCode);
 
@@ -157,8 +159,9 @@ async function main() {
 
 
       games.push({
-        gameName: foundGame?.trophyTitleName,
+        gameName: spTag?.displayName || foundGame?.trophyTitleName,
         gameTag: spTag?.tag,
+        customizedName: spTag?.customizedName || "",
         npCommunicationId: foundGame?.npCommunicationId,
         platform: foundGame?.trophyTitlePlatform,
         trophyTitleIconUrl: foundGame?.trophyTitleIconUrl,
@@ -166,12 +169,14 @@ async function main() {
         earnedCounts: foundGame?.earnedTrophies,
         lastEnenedTime: lastTime,
         firstEnenedTime: firstTime,
-        trophyList: mergedTrophies
       });
+      fs.mkdirSync(`${output_path}/details`, { recursive: true });
+      fs.writeFileSync(`${output_path}/details/${foundGame?.npCommunicationId}.json`, JSON.stringify(mergedTrophies));
+
     }
 
     // 7. Write to a JSON file.
-    fs.writeFileSync("./final_result.json", JSON.stringify(games));
+    fs.writeFileSync(`${output_path}/gamelist.json`, JSON.stringify(games));
 
   } else {
 

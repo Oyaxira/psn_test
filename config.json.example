@@ -1,4 +1,5 @@
 {
   "npsso": "npsso",
-  "target": "me"
+  "target": "me",
+  "output_path": "./result/"
 }
