@@ -96,15 +96,15 @@ async function main() {
       let foundGame;
       if (spTag?.language == "zh-Hans") {
         foundGame = trophyTitlesZHCN.find(
-          (t) => t.npCommunicationId === spTag?.npCommunicationId
+          (t) => t?.npCommunicationId === spTag?.npCommunicationId
         );
       } else if (spTag?.language == "zh-Hant") {
         foundGame = trophyTitlesZHTW.find(
-          (t) => t.npCommunicationId === spTag?.npCommunicationId
+          (t) => t?.npCommunicationId === spTag?.npCommunicationId
         );
       } else {
         foundGame = trophyTitles.find(
-          (t) => t.npCommunicationId === spTag?.npCommunicationId
+          (t) => t?.npCommunicationId === spTag?.npCommunicationId
         );
       }
       console.log(`Processing ${foundGame?.trophyTitleName} ${spTag?.language}`)
@@ -149,8 +149,8 @@ async function main() {
           }
         });
       // 6. Merge the two trophy lists.
-      const mergedTrophies = mergeTrophyLists2(titleTrophies, earnedTrophies, trophyGroups);
-      let filterdEnenedTrohpy = earnedTrophies.filter((t) => t.earned);
+      const mergedTrophies = mergeTrophyLists2(titleTrophies, earnedTrophies);
+      let filterdEnenedTrohpy = earnedTrophies.filter((t) => t?.earned);
       _.sortBy(filterdEnenedTrohpy, ['earnedDateTime'])
       let lastEnenedTrohpy = filterdEnenedTrohpy[filterdEnenedTrohpy.length - 1];
       let firstEnenedTrohpy = filterdEnenedTrohpy[0];
@@ -170,8 +170,29 @@ async function main() {
         lastEnenedTime: lastTime,
         firstEnenedTime: firstTime,
       });
+      let trophyGroupData = trophyGroups.map((trophyGroup) => {
+        let resultData: any = { ...trophyGroup }
+        resultData.trophies = mergedTrophies.filter((t) => t?.groupId == trophyGroup.trophyGroupId);
+        let trophyTypeCounts = {
+          bronze: resultData.trophies.filter((t: { type: string; }) => t?.type == "bronze").length,
+          silver: resultData.trophies.filter((t: { type: string; }) => t?.type == "silver").length,
+          gold: resultData.trophies.filter((t: { type: string; }) => t?.type == "gold").length,
+          platinum: resultData.trophies.filter((t: { type: string; }) => t?.type == "platinum").length
+        }
+        let earnedCounts = {
+          bronze: resultData.trophies.filter((t: { isEarned: any; type: string; }) => t?.isEarned && t?.type == "bronze").length,
+          silver: resultData.trophies.filter((t: { isEarned: any; type: string; }) => t?.isEarned && t?.type == "silver").length,
+          gold: resultData.trophies.filter((t: { isEarned: any; type: string; }) => t?.isEarned && t?.type == "gold").length,
+          platinum: resultData.trophies.filter((t: { isEarned: any; type: string; }) => t?.isEarned && t?.type == "platinum").length
+        }
+        resultData.earnedCounts = earnedCounts
+        resultData.trophyTypeCounts = trophyTypeCounts
+        delete resultData.definedTrophies
+        return resultData
+      });
+
       fs.mkdirSync(`${output_path}/details`, { recursive: true });
-      fs.writeFileSync(`${output_path}/details/${foundGame?.npCommunicationId}.json`, JSON.stringify(mergedTrophies));
+      fs.writeFileSync(`${output_path}/details/${foundGame?.npCommunicationId}.json`, JSON.stringify(trophyGroupData));
 
     }
 
@@ -186,11 +207,11 @@ async function main() {
       console.log(`Processing ${title.trophyTitleName}`)
 
       const foundGameZHCN = trophyTitlesZHCN.find(
-        (t) => t.npCommunicationId === title.npCommunicationId
+        (t) => t?.npCommunicationId === title.npCommunicationId
       );
 
       const foundGameZHTW = trophyTitlesZHTW.find(
-        (t) => t.npCommunicationId === title.npCommunicationId
+        (t) => t?.npCommunicationId === title.npCommunicationId
       );
 
 
@@ -268,11 +289,11 @@ const mergeTrophyLists = (
 
   for (const earnedTrophy of earnedTrophies) {
     const foundTitleTrophy = titleTrophies.find(
-      (t) => t.trophyId === earnedTrophy.trophyId
+      (t) => t?.trophyId === earnedTrophy.trophyId
     );
 
     const foundTitleTrophyHant = titleTrophiesHant.find(
-      (t) => t.trophyId === earnedTrophy.trophyId
+      (t) => t?.trophyId === earnedTrophy.trophyId
     );
 
 
@@ -304,25 +325,21 @@ const normalizeTrophy = (trophy: Trophy, hantTrophy: Trophy) => {
 const mergeTrophyLists2 = (
   titleTrophies: Trophy[],
   earnedTrophies: Trophy[],
-  trophyGroups: any[],
 ) => {
   const mergedTrophies: any[] = [];
 
   for (const earnedTrophy of earnedTrophies) {
     const foundTitleTrophy = titleTrophies.find(
-      (t) => t.trophyId === earnedTrophy.trophyId
+      (t) => t?.trophyId === earnedTrophy.trophyId
     );
 
-    mergedTrophies.push(normalizeTrophy2({ ...earnedTrophy, ...foundTitleTrophy }, trophyGroups));
+    mergedTrophies.push(normalizeTrophy2({ ...earnedTrophy, ...foundTitleTrophy }));
   }
 
   return mergedTrophies;
 };
 
-const normalizeTrophy2 = (trophy: Trophy, trophyGroups: any[]) => {
-  let trophyGroup = trophyGroups.find((t) => {
-    return t.trophyGroupId == trophy.trophyGroupId
-  }) || {}
+const normalizeTrophy2 = (trophy: Trophy) => {
   return {
     isEarned: trophy.earned ?? false,
     earnedOn: trophy.earned ? trophy.earnedDateTime : "unearned",
@@ -333,8 +350,6 @@ const normalizeTrophy2 = (trophy: Trophy, trophyGroups: any[]) => {
     earnedRate: Number(trophy.trophyEarnedRate),
     trophyName: trophy.trophyName,
     trophyHidden: trophy.trophyHidden,
-    trophyGroupName: trophyGroup?.trophyGroupName,
-    trophyGroupIconUrl: trophyGroup?.trophyGroupIconUrl,
     groupId: trophy.trophyGroupId
   };
 };
