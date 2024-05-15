@@ -9,7 +9,8 @@ import {
   makeUniversalSearch,
   getUserTrophiesEarnedForTitle,
   getTitleTrophyGroups,
-  TrophyRarity
+  TrophyRarity,
+  getProfileFromUserName
 } from "psn-api";
 import { findConfigFile } from "typescript";
 import * as _ from "lodash";
@@ -33,6 +34,7 @@ async function main() {
   const authorization = await exchangeCodeForAccessToken(accessCode);
 
   let targetAccountId = "me"
+  let userName = ''
   if (target !== "me") {
     const allAccountsSearchResults = await makeUniversalSearch(
       authorization,
@@ -42,6 +44,19 @@ async function main() {
     targetAccountId =
       allAccountsSearchResults.domainResponses[0].results[0].socialMetadata
         .accountId;
+    userName = allAccountsSearchResults.domainResponses[0].results[0].socialMetadata.onlineId;
+  }
+  if (userName) {
+    let result = await getProfileFromUserName(authorization, userName);
+    let is_plus = result?.profile?.plus === 1;
+    let trophySummary = result?.profile?.trophySummary;
+    let userData = {
+      is_plus: is_plus,
+      trophySummary: trophySummary,
+      userName: userName,
+      accountId: targetAccountId,
+    }
+    fs.writeFileSync(`${output_path}/profile.json`, JSON.stringify(userData));
   }
 
   let sptagFile = process.argv[3]
@@ -274,7 +289,7 @@ async function main() {
     }
 
     // 7. Write to a JSON file.
-    fs.writeFileSync("./result.json", JSON.stringify(games));
+    fs.writeFileSync(`${output_path}/result.json`, JSON.stringify(games));
   }
 
 
